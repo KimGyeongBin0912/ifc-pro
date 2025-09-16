@@ -40,6 +40,16 @@ const CATEGORY_LIST = [
   'IFCCURTAINWALL',
 ]
 
+// WASM 경로 자동 결정: /wasm/ 있으면 사용, 없으면 CDN 폴백
+async function resolveWasmPath() {
+  try {
+    const head = await fetch('/wasm/web-ifc.wasm', { method: 'HEAD' })
+    if (head.ok) return '/wasm/'
+  } catch (_) {}
+  // 폴백(CDN) — CORS/MIME 정상, Render에서도 대체 가능
+  return 'https://unpkg.com/web-ifc@0.0.51/'
+}
+
 export default function App() {
   const containerRef = useRef(null)
   const viewerRef = useRef(null)
@@ -52,43 +62,47 @@ export default function App() {
   const [propsText, setPropsText] = useState('')
 
   useEffect(() => {
-    // 뷰어 컨테이너
-    const container = document.createElement('div')
-    container.id = 'viewer-container'
-    containerRef.current.appendChild(container)
+    (async () => {
+      // 뷰어 컨테이너
+      const container = document.createElement('div')
+      container.id = 'viewer-container'
+      containerRef.current.appendChild(container)
 
-    const viewer = new IfcViewerAPI({ container, backgroundColor: new THREE.Color(0xffffff) })
+      const viewer = new IfcViewerAPI({ container, backgroundColor: new THREE.Color(0xffffff) })
 
-    // 🔒 Render Static 환경 안전 설정
-    viewer.IFC.loader.ifcManager.useWebWorkers(false)         // 멀티스레드 비활성화
-    viewer.IFC.loader.ifcManager.setWasmPath('/wasm/')        // 동일 오리진 WASM
+      // 🔒 Render Static 환경 안전 설정
+      viewer.IFC.loader.ifcManager.useWebWorkers(false) // 멀티스레드 비활성화
+      const wasmPath = await resolveWasmPath()
+      viewer.IFC.loader.ifcManager.setWasmPath(wasmPath)
+      console.log('[IFC] wasmPath =', wasmPath)
 
-    // 가시성 옵션
-    viewer.axes.setAxes()
-    viewer.grid.setGrid(50, 50)
-    if (viewer.context?.renderer?.postProduction) {
-      viewer.context.renderer.postProduction.active = true
-    }
-
-    // 선택/프리픽
-    window.onmousemove = () => viewer.IFC.selector.prePickIfcItem()
-    window.onclick = async () => {
-      if (!modelIDRef.current) return
-      try {
-        const result = await viewer.IFC.selector.pickIfcItem()
-        if (!result) return
-        const { modelID, id } = result
-        const props = await viewer.IFC.getProperties(modelID, id, true, true)
-        setPropsText(JSON.stringify(props, null, 2))
-      } catch (e) {
-        console.error('[pickIfcItem error]', e)
+      // 가시성 옵션
+      viewer.axes.setAxes()
+      viewer.grid.setGrid(50, 50)
+      if (viewer.context?.renderer?.postProduction) {
+        viewer.context.renderer.postProduction.active = true
       }
-    }
 
-    viewerRef.current = viewer
+      // 선택/프리픽
+      window.onmousemove = () => viewer.IFC.selector.prePickIfcItem()
+      window.onclick = async () => {
+        if (!modelIDRef.current) return
+        try {
+          const result = await viewer.IFC.selector.pickIfcItem()
+          if (!result) return
+          const { modelID, id } = result
+          const props = await viewer.IFC.getProperties(modelID, id, true, true)
+          setPropsText(JSON.stringify(props, null, 2))
+        } catch (e) {
+          console.error('[pickIfcItem error]', e)
+        }
+      }
+
+      viewerRef.current = viewer
+    })()
 
     return () => {
-      try { viewer.dispose() } catch (_) {}
+      try { viewerRef.current?.dispose() } catch (_) {}
     }
   }, [])
 
@@ -96,8 +110,7 @@ export default function App() {
   const onFileSelected = async (e) => {
     const input = e.target
     const file = input.files && input.files[0]
-    // 같은 파일을 다시 선택해도 onChange가 발생하도록 리셋
-    input.value = ''
+    input.value = '' // 동일 파일 재선택 허용
 
     if (!file) return
     try {
@@ -107,8 +120,6 @@ export default function App() {
       setStoreys([])
       setActiveStorey(null)
 
-      // ❗ 핵심: web-ifc-viewer의 loadIfc는 File/Blob URL을 기대한다.
-      // File 그대로 넘기는 것이 가장 호환성이 좋다.
       await loadIFC(file, file.name)
 
       console.timeEnd('[IFC] load')
@@ -119,20 +130,18 @@ export default function App() {
     }
   }
 
-  // IFC 로딩 (File | Blob | Uint8Array 모두 허용하되, 최종적으로 File로 래핑)
+  // IFC 로딩 (입력을 File/Blob으로 정규화)
   const loadIFC = async (input, filename = 'model.ifc') => {
     if (!viewerRef.current || !input) return
     const viewer = viewerRef.current
     setLoaded(false)
 
-    // ▶ 입력을 File로 정규화 (createObjectURL TypeError 방지)
     let fileToLoad
     if (input instanceof File) {
       fileToLoad = input
     } else if (input instanceof Blob) {
       fileToLoad = new File([input], filename, { type: 'application/octet-stream' })
     } else {
-      // Uint8Array, ArrayBuffer 등
       const buf = input instanceof ArrayBuffer ? input : (input.buffer ?? input)
       const blob = new Blob([buf], { type: 'application/octet-stream' })
       fileToLoad = new File([blob], filename, { type: 'application/octet-stream' })
@@ -195,13 +204,11 @@ export default function App() {
           })
         }
       } catch (e) {
-        // 해당 카테고리가 없거나 API 차이일 수 있음 (무시)
         console.warn('[subset build warn]', cat, e?.message || e)
       }
     }
   }
 
-  // 카테고리 토글
   const onToggleCategory = (cat) => {
     const viewer = viewerRef.current
     const modelID = modelIDRef.current
@@ -216,7 +223,6 @@ export default function App() {
     if (subsetObj) subsetObj.visible = next.has(cat)
   }
 
-  // 카테고리 단독 보기
   const showOnlyCategory = (cat) => {
     CATEGORY_LIST.forEach((c) => {
       if (c === cat) {
@@ -227,13 +233,11 @@ export default function App() {
     })
   }
 
-  // 뷰 리셋
   const resetView = () => {
     if (!viewerRef.current) return
     viewerRef.current.context.fitToFrame()
   }
 
-  // 스토리 하이라이트
   const onSetStorey = async (storeyID) => {
     const viewer = viewerRef.current
     const modelID = modelIDRef.current
@@ -296,81 +300,81 @@ export default function App() {
       <aside className="sidebar">
         <div className="section">
           <h3>요소 필터</h3>
-        <div className="badges">
-          {CATEGORY_LIST.map((cat) => (
-            <span
-              key={cat}
-              className={`badge ${activeCats.has(cat) ? 'active' : ''}`}
-              onClick={() => onToggleCategory(cat)}
-              title={`토글 ${cat}`}
-            >
-              {cat.replace('IFC', '')}
-            </span>
-          ))}
-        </div>
-        <div className="row" style={{ marginTop: 8 }}>
-          <select className="grow" onChange={(e) => showOnlyCategory(e.target.value)} defaultValue="">
-            <option value="" disabled>카테고리 단독 보기…</option>
+          <div className="badges">
             {CATEGORY_LIST.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-          <button className="btn" onClick={() => setActiveCats(new Set(CATEGORY_LIST))}>전체 보이기</button>
-        </div>
-      </div>
-
-      <div className="section">
-        <h3>층(스토리) 보기</h3>
-        {storeys.length === 0 && <div className="muted">스토리 정보 없음 (모델 구조 분석 대기 또는 미포함)</div>}
-        {storeys.length > 0 && (
-          <ul>
-            {storeys.map((s) => (
-              <li key={s.expressID}>
-                <label>
-                  <input
-                    type="radio"
-                    name="storey"
-                    checked={activeStorey === s.expressID}
-                    onChange={() => onSetStorey(s.expressID)}
-                  />
-                  {' '}{s.name} <span className="muted">#{s.expressID}</span>
-                </label>
-              </li>
-            ))}
-            <li style={{ marginTop: 6 }}>
-              <button
-                className="btn"
-                onClick={() => { setActiveStorey(null); viewerRef.current?.IFC.selector.unpickIfcItems() }}
+              <span
+                key={cat}
+                className={`badge ${activeCats.has(cat) ? 'active' : ''}`}
+                onClick={() => onToggleCategory(cat)}
+                title={`토글 ${cat}`}
               >
-                스토리 선택 해제
-              </button>
-            </li>
-          </ul>
-        )}
-      </div>
-
-      <div className="section">
-        <h3>선택 요소 속성</h3>
-        <div className="row" style={{ marginBottom: 8 }}>
-          <button className="btn" onClick={downloadProps} disabled={!propsText}>JSON 다운로드</button>
-          <span className="muted">클릭한 요소의 IfcPropertySet 등 표시</span>
+                {cat.replace('IFC', '')}
+              </span>
+            ))}
+          </div>
+          <div className="row" style={{ marginTop: 8 }}>
+            <select className="grow" onChange={(e) => showOnlyCategory(e.target.value)} defaultValue="">
+              <option value="" disabled>카테고리 단독 보기…</option>
+              {CATEGORY_LIST.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <button className="btn" onClick={() => setActiveCats(new Set(CATEGORY_LIST))}>전체 보이기</button>
+          </div>
         </div>
-        <pre className="muted" style={{ maxHeight: 240, overflow: 'auto', background: '#f7f7f7', padding: 8, borderRadius: 8 }}>
+
+        <div className="section">
+          <h3>층(스토리) 보기</h3>
+          {storeys.length === 0 && <div className="muted">스토리 정보 없음 (모델 구조 분석 대기 또는 미포함)</div>}
+          {storeys.length > 0 && (
+            <ul>
+              {storeys.map((s) => (
+                <li key={s.expressID}>
+                  <label>
+                    <input
+                      type="radio"
+                      name="storey"
+                      checked={activeStorey === s.expressID}
+                      onChange={() => onSetStorey(s.expressID)}
+                    />
+                    {' '}{s.name} <span className="muted">#{s.expressID}</span>
+                  </label>
+                </li>
+              ))}
+              <li style={{ marginTop: 6 }}>
+                <button
+                  className="btn"
+                  onClick={() => { setActiveStorey(null); viewerRef.current?.IFC.selector.unpickIfcItems() }}
+                >
+                  스토리 선택 해제
+                </button>
+              </li>
+            </ul>
+          )}
+        </div>
+
+        <div className="section">
+          <h3>선택 요소 속성</h3>
+          <div className="row" style={{ marginBottom: 8 }}>
+            <button className="btn" onClick={downloadProps} disabled={!propsText}>JSON 다운로드</button>
+            <span className="muted">클릭한 요소의 IfcPropertySet 등 표시</span>
+          </div>
+          <pre className="muted" style={{ maxHeight: 240, overflow: 'auto', background: '#f7f7f7', padding: 8, borderRadius: 8 }}>
 {propsText || '요소를 클릭하면 속성이 여기에 표시됩니다.'}
-        </pre>
-      </div>
-
-      <div className="section">
-        <h3>힌트</h3>
-        <div className="muted">
-          <div><span className="kbd">마우스 좌클릭 드래그</span> 회전</div>
-          <div><span className="kbd">휠</span> 줌</div>
-          <div><span className="kbd">Shift + 드래그</span> 이동</div>
+          </pre>
         </div>
-      </div>
-    </aside>
 
-    <main className="viewer" ref={containerRef}></main>
-  </div>
+        <div className="section">
+          <h3>힌트</h3>
+          <div className="muted">
+            <div><span className="kbd">마우스 좌클릭 드래그</span> 회전</div>
+            <div><span className="kbd">휠</span> 줌</div>
+            <div><span className="kbd">Shift + 드래그</span> 이동</div>
+          </div>
+        </div>
+      </aside>
+
+      <main className="viewer" ref={containerRef}></main>
+    </div>
   )
 }
