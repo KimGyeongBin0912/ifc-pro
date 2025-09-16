@@ -1,0 +1,23 @@
+{
+  "name": "ifc-viewer-pro",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 5173"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "three": "0.135.0",
+    "web-ifc": "0.0.51",
+    "web-ifc-viewer": "1.0.151"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "vite": "^5.4.0"
+  }
+}
