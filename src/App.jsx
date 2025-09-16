@@ -68,9 +68,7 @@
             viewer.axes.setAxes()
             viewer.grid.setGrid(50, 50)
 
-            // Highlight material
-            if (viewer.IFC?.selector?.selection?.material?.color) {   viewer.IFC.selector.selection.material.color = new THREE.Color(0x00aaff) }
-
+           
             viewerRef.current = viewer
 
             // Click selection + properties panel
