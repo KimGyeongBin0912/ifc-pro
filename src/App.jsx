@@ -60,16 +60,16 @@ export default function App() {
     const viewer = new IfcViewerAPI({ container, backgroundColor: new THREE.Color(0xffffff) })
 
     // 🔒 Render Static 환경 안전 설정
-    // 1) 멀티스레드/워커 미사용 (SharedArrayBuffer 없이 동작)
-    viewer.IFC.loader.ifcManager.useWebWorkers(false)
-    // 2) 동일 오리진에서 WASM 로드 (/public/wasm 에 복사됨)
-    //   (프로젝트에 scripts/copy-wasm.js + postinstall 스크립트 포함)
-    viewer.IFC.loader.ifcManager.setWasmPath('/wasm/')
+    viewer.IFC.loader.ifcManager.useWebWorkers(false)         // 멀티스레드 비활성화
+    viewer.IFC.loader.ifcManager.setWasmPath('/wasm/')        // 동일 오리진 WASM
 
     // 가시성 옵션
     viewer.axes.setAxes()
     viewer.grid.setGrid(50, 50)
-    viewer.context.renderer.postProduction.active = true
+    // ⛑️ 버전별로 postProduction이 없을 수 있으므로 안전 가드
+    if (viewer.context?.renderer?.postProduction) {
+      viewer.context.renderer.postProduction.active = true
+    }
 
     // 선택/프리픽
     window.onmousemove = () => viewer.IFC.selector.prePickIfcItem()
@@ -251,7 +251,6 @@ export default function App() {
       collect(spatial)
 
       await viewer.IFC.selector.unpickIfcItems()
-      // 하이라이트(선택)로 표시
       await viewer.IFC.selector.highlightIfcItemsByID(modelID, Array.from(idsToHighlight))
     } catch (e) {
       console.warn('[storey highlight warn]', e)
