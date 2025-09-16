@@ -217,10 +217,32 @@
             // Make highlighted items stand out; the rest can remain visible
           }
 
-          const onFileSelected = (e) => {
-            const file = e.target.files?.[0]
-            if (file) loadIFC(file)
-          }
+          const onFileSelected = async (e) => {
+  const input = e.target;
+  const file = input.files && input.files[0];
+  // 다음 선택에서도 onChange가 확실히 발생하도록 즉시 리셋
+  input.value = "";
+
+  if (!file) return;
+
+  try {
+    console.time("[IFC] load");
+    setLoaded(false);
+    setPropsText("");
+    setStoreys([]);
+    setActiveStorey(null);
+
+    // 일부 환경에서 File 그대로보다 ArrayBuffer가 더 안정적
+    const buf = await file.arrayBuffer();
+    await loadIFC(new Uint8Array(buf), file.name);
+
+    console.timeEnd("[IFC] load");
+  } catch (err) {
+    console.error("[IFC load error]", err);
+    alert("IFC 로드 중 오류가 발생했습니다. 콘솔을 확인해주세요.");
+    setLoaded(false);
+  }
+};
 
           const downloadProps = () => {
             if (!propsText) return
