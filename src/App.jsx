@@ -217,7 +217,7 @@
             // Make highlighted items stand out; the rest can remain visible
           }
 
-          const onFileSelected = async (e) => {
+  const onFileSelected = async (e) => {
   const input = e.target;
   const file = input.files && input.files[0];
   // 다음 선택에서도 onChange가 확실히 발생하도록 즉시 리셋
