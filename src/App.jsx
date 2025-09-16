@@ -40,16 +40,6 @@ const CATEGORY_LIST = [
   'IFCCURTAINWALL',
 ]
 
-// WASM 경로 자동 결정: /wasm/ 있으면 사용, 없으면 CDN 폴백
-async function resolveWasmPath() {
-  try {
-    const head = await fetch('/wasm/web-ifc.wasm', { method: 'HEAD' })
-    if (head.ok) return '/wasm/'
-  } catch (_) {}
-  // 폴백(CDN) — CORS/MIME 정상, Render에서도 대체 가능
-  return 'https://unpkg.com/web-ifc@0.0.51/'
-}
-
 export default function App() {
   const containerRef = useRef(null)
   const viewerRef = useRef(null)
@@ -62,48 +52,41 @@ export default function App() {
   const [propsText, setPropsText] = useState('')
 
   useEffect(() => {
-    (async () => {
-      // 뷰어 컨테이너
-      const container = document.createElement('div')
-      container.id = 'viewer-container'
-      containerRef.current.appendChild(container)
+    // 뷰어 컨테이너
+    const container = document.createElement('div')
+    container.id = 'viewer-container'
+    containerRef.current.appendChild(container)
 
-      const viewer = new IfcViewerAPI({ container, backgroundColor: new THREE.Color(0xffffff) })
+    const viewer = new IfcViewerAPI({ container, backgroundColor: new THREE.Color(0xffffff) })
 
-      // 🔒 Render Static 환경 안전 설정
-      viewer.IFC.loader.ifcManager.useWebWorkers(false) // 멀티스레드 비활성화
-      const wasmPath = await resolveWasmPath()
-      viewer.IFC.loader.ifcManager.setWasmPath(wasmPath)
-      console.log('[IFC] wasmPath =', wasmPath)
+    // 🔒 Render Static 환경 안전 설정
+    viewer.IFC.loader.ifcManager.useWebWorkers(false)     // 멀티스레드 비활성화(SharedArrayBuffer 필요 없음)
+    viewer.IFC.loader.ifcManager.setWasmPath('/wasm/')    // 동일 오리진에서 WASM 서빙 (copy-wasm.js로 복사됨)
 
-      // 가시성 옵션
-      viewer.axes.setAxes()
-      viewer.grid.setGrid(50, 50)
-      if (viewer.context?.renderer?.postProduction) {
-        viewer.context.renderer.postProduction.active = true
-      }
-
-      // 선택/프리픽
-      window.onmousemove = () => viewer.IFC.selector.prePickIfcItem()
-      window.onclick = async () => {
-        if (!modelIDRef.current) return
-        try {
-          const result = await viewer.IFC.selector.pickIfcItem()
-          if (!result) return
-          const { modelID, id } = result
-          const props = await viewer.IFC.getProperties(modelID, id, true, true)
-          setPropsText(JSON.stringify(props, null, 2))
-        } catch (e) {
-          console.error('[pickIfcItem error]', e)
-        }
-      }
-
-      viewerRef.current = viewer
-    })()
-
-    return () => {
-      try { viewerRef.current?.dispose() } catch (_) {}
+    // 뷰 도우미
+    viewer.axes.setAxes()
+    viewer.grid.setGrid(50, 50)
+    if (viewer.context?.renderer?.postProduction) {
+      viewer.context.renderer.postProduction.active = true
     }
+
+    // 선택/프리픽
+    window.onmousemove = () => viewer.IFC.selector.prePickIfcItem()
+    window.onclick = async () => {
+      if (!modelIDRef.current) return
+      try {
+        const result = await viewer.IFC.selector.pickIfcItem()
+        if (!result) return
+        const { modelID, id } = result
+        const props = await viewer.IFC.getProperties(modelID, id, true, true)
+        setPropsText(JSON.stringify(props, null, 2))
+      } catch (e) {
+        console.error('[pickIfcItem error]', e)
+      }
+    }
+
+    viewerRef.current = viewer
+    return () => { try { viewer.dispose() } catch (_) {} }
   }, [])
 
   // 파일 선택 (동일 파일 재선택 허용 + 실패 시 알림)
@@ -136,6 +119,7 @@ export default function App() {
     const viewer = viewerRef.current
     setLoaded(false)
 
+    // ▶ 입력을 File로 정규화 (createObjectURL TypeError 방지)
     let fileToLoad
     if (input instanceof File) {
       fileToLoad = input
