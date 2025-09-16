@@ -69,7 +69,7 @@
             viewer.grid.setGrid(50, 50)
 
             // Highlight material
-            viewer.IFC.selector.defSelectionMaterial.color = new THREE.Color(0x00aaff)
+            if (viewer.IFC?.selector?.selection?.material?.color) {   viewer.IFC.selector.selection.material.color = new THREE.Color(0x00aaff) }
 
             viewerRef.current = viewer
 
