@@ -496,12 +496,18 @@ interface HomeContentProps {
   onSelectItem: (item: GuideItem) => void
   username: string
   mode?: "full" | "floating"
+  pendingChatId?: string | null
+  pendingMessages?: UIMessage[] | null
+  onPendingConsumed?: () => void
 }
 
 export function HomeContent({
   onSelectItem,
   username,
   mode = "full",
+  pendingChatId,
+  pendingMessages,
+  onPendingConsumed,
 }: HomeContentProps) {
   const isFloating = mode === "floating"
   const [chatList, setChatList] = useState<ChatSummary[]>([])
@@ -599,6 +605,20 @@ export function HomeContent({
       setOpeningChat(false)
     }
   }
+
+  // Handle pending chat from floating panel expand
+  useEffect(() => {
+    if (pendingChatId && pendingMessages) {
+      setChatMountKey((k) => k + 1)
+      setLoadedMessages(pendingMessages)
+      setLoadedTitle(null)
+      setActiveChatId(pendingChatId)
+      onPendingConsumed?.()
+    } else if (pendingChatId) {
+      openChat(pendingChatId).then(() => onPendingConsumed?.())
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingChatId])
 
   // Start a new chat (optionally with initial text)
   const [newChatInitialText, setNewChatInitialText] = useState<string | null>(null)
