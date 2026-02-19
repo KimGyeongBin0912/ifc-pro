@@ -416,8 +416,9 @@ export function MainLayout({ username, onLogout, homeReady = true }: MainLayoutP
                   <div className="p-3 space-y-2">
                     <button
                       onClick={() => {
-                        setFloatingOpen(false)
-                        setSelectedItem(null)
+                        const newId = `chat-${Date.now()}`
+                        setFloatingActiveChatId(newId)
+                        setFloatingMessages([])
                       }}
                       className="flex w-full items-center gap-2.5 rounded-xl border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                     >
