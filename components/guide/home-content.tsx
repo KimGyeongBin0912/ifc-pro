@@ -499,6 +499,7 @@ interface HomeContentProps {
   pendingChatId?: string | null
   pendingMessages?: UIMessage[] | null
   onPendingConsumed?: () => void
+  onTitleGenerated?: (chatId: string, title: string) => void
 }
 
 export function HomeContent({
@@ -508,6 +509,7 @@ export function HomeContent({
   pendingChatId,
   pendingMessages,
   onPendingConsumed,
+  onTitleGenerated,
 }: HomeContentProps) {
   const isFloating = mode === "floating"
   const [chatList, setChatList] = useState<ChatSummary[]>([])
@@ -709,6 +711,7 @@ export function HomeContent({
   track={userTrack}
   onSelectItem={onSelectItem}
   onBack={handleBackToHome}
+  onTitleGenerated={onTitleGenerated}
   mode={mode}
       />
     )
@@ -933,6 +936,7 @@ function ChatView({
   track,
   onSelectItem,
   onBack,
+  onTitleGenerated,
 }: {
   chatId: string
   username: string
@@ -943,6 +947,7 @@ function ChatView({
   track?: string
   onSelectItem: (item: GuideItem) => void
   onBack: () => void
+  onTitleGenerated?: (chatId: string, title: string) => void
 }) {
   const [input, setInput] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -1024,6 +1029,7 @@ function ChatView({
           if (title) {
             const chatDocRef = doc(db, "users", username, chatColName, chatId)
             await setDoc(chatDocRef, { title }, { merge: true })
+            onTitleGenerated?.(chatId, title)
           }
         }
       } catch {
