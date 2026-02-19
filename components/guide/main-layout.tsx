@@ -795,6 +795,7 @@ function FloatingChatPanel({
   track,
   onSelectItem,
   onExpandToHome,
+  onTitleGenerated,
 }: {
   chatId: string
   username: string
