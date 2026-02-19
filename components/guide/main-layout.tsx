@@ -336,6 +336,11 @@ export function MainLayout({ username, onLogout, homeReady = true }: MainLayoutP
                 setPendingChatId(null)
                 setPendingMessages(null)
               }}
+              onTitleGenerated={(cid, title) => {
+                setFloatingChatList((prev) =>
+                  prev.map((c) => (c.id === cid ? { ...c, title } : c))
+                )
+              }}
             />
           )}
         </div>
@@ -400,6 +405,11 @@ export function MainLayout({ username, onLogout, homeReady = true }: MainLayoutP
   track={floatingTrack}
   onSelectItem={handleSelectItem}
   onExpandToHome={expandToHome}
+  onTitleGenerated={(cid, title) => {
+    setFloatingChatList((prev) =>
+      prev.map((c) => (c.id === cid ? { ...c, title } : c))
+    )
+  }}
   />
               ) : (
                 <div className="h-[570px] overflow-y-auto">
@@ -792,9 +802,11 @@ function FloatingChatPanel({
   track?: string
   onSelectItem: (item: GuideItem) => void
   onExpandToHome: () => void
+  onTitleGenerated?: (chatId: string, title: string) => void
 }) {
   const [input, setInput] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const titleGeneratedRef = useRef(false)
 
   // Normalize Firebase messages on mount (stable)
   const [normalizedInit] = useState<UIMessage[]>(() => {
@@ -864,11 +876,38 @@ function FloatingChatPanel({
     [username, chatId]
   )
 
+  // Auto-generate title after first assistant response
+  const generateTitle = useCallback(
+    async (msgs: UIMessage[]) => {
+      if (titleGeneratedRef.current || !username || msgs.length < 2) return
+      titleGeneratedRef.current = true
+      try {
+        const res = await fetch("/api/chat/title", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: JSON.parse(JSON.stringify(msgs.slice(0, 6))) }),
+        })
+        if (res.ok) {
+          const { title } = await res.json()
+          if (title) {
+            const chatDocRef = doc(db, "users", username, floatingChatColName, chatId)
+            await setDoc(chatDocRef, { title }, { merge: true })
+            onTitleGenerated?.(chatId, title)
+          }
+        }
+      } catch {
+        // silent
+      }
+    },
+    [username, chatId, floatingChatColName, onTitleGenerated]
+  )
+
   useEffect(() => {
     if (status === "ready" && messages.length > 0) {
       saveMessages(messages)
+      generateTitle(messages)
     }
-  }, [messages, status, saveMessages])
+  }, [messages, status, saveMessages, generateTitle])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
