@@ -268,7 +268,7 @@ export function ButtonPreview() {
           <Labeled name='"다운로드 아이콘이 있는 내려받기 버튼"'><Button variant="outline"><Download className="h-4 w-4 mr-2" />내려받기</Button></Labeled>
           <Labeled name='"공유 아이콘이 있는 공유하기 버튼"'><Button variant="secondary"><Share className="h-4 w-4 mr-2" />공유하기</Button></Labeled>
           <Labeled name='"업로드 아이콘이 있는 파일 올리기 버튼"'><Button variant="outline"><Upload className="h-4 w-4 mr-2" />파일 올리기</Button></Labeled>
-          <Labeled name='"저장 아이콘이 있는 저장하기 버튼"'><Button><Save className="h-4 w-4 mr-2" />저장하기</Button></Labeled>
+          <Labeled name='"저장 아이콘이 있는 저��하기 버튼"'><Button><Save className="h-4 w-4 mr-2" />저장하기</Button></Labeled>
           <Labeled name='"전송 아이콘이 있는 보내기 버튼"'><Button><Send className="h-4 w-4 mr-2" />보내기</Button></Labeled>
         </div>
       </PreviewBlock>
@@ -2415,7 +2415,7 @@ export function PerformancePreview() {
             <div className="rounded-lg border border-dashed border-border p-6 text-center min-w-[180px]">
               <Package className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
               <p className="text-xs font-medium">데이터가 없습니다</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">새로운 항목을 추가해보세���</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">새로운 항목을 추가해보세요</p>
               <Button size="sm" className="mt-3 h-7 text-[10px]"><Plus className="h-3 w-3 mr-1" />추가하기</Button>
             </div>
           </Labeled>
@@ -2473,7 +2473,7 @@ export function AiModelsPreview() {
         <Labeled name='"상황별 추천 모델 안내"'>
           <div className="max-w-md space-y-2">
             {[
-              { situation: "일반 챗봇", model: "GPT-4o-mini", reason: "빠르�� 저렴" },
+              { situation: "일반 챗봇", model: "GPT-4o-mini", reason: "빠르고 저렴" },
               { situation: "긴 글 작성", model: "Claude Sonnet", reason: "글 품질 우수" },
               { situation: "실시간 응답", model: "Gemini Flash", reason: "가장 빠른 응답" },
               { situation: "복잡한 분석", model: "GPT-4.1", reason: "최고 성능" },
